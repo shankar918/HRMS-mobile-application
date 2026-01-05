@@ -1,98 +1,153 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { useThemeColor } from '@/hooks/use-theme-color';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { Link } from 'expo-router';
+import React, { useRef, useState } from 'react';
+import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export default function HomeScreen() {
+const Index = () => {
+  const [showLabel, setShowLabel] = useState(true);
+  const headerBg = useThemeColor({}, 'tint');
+  const windowWidth = Dimensions.get('window').width;
+  const expandedWidth = windowWidth;
+  const collapsedWidth = 80;
+  const animWidth = useRef(new Animated.Value(expandedWidth)).current;
+
+  const labelOpacity = animWidth.interpolate({
+    inputRange: [collapsedWidth, expandedWidth],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const labelTranslate = animWidth.interpolate({
+    inputRange: [collapsedWidth, expandedWidth],
+    outputRange: [-10, 0],
+    extrapolate: 'clamp',
+  });
+
+  const labelAnimatedStyle = { opacity: labelOpacity, transform: [{ translateX: labelTranslate }] };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.menuHeader}>
+          <TouchableOpacity
+            onPress={() => {
+              setShowLabel(prev => {
+                const next = !prev;
+                Animated.timing(animWidth, {
+                  toValue: next ? expandedWidth : collapsedWidth,
+                  duration: 250,
+                  useNativeDriver: false,
+                }).start();
+                return next;
+              });
+            }}
+            style={styles.menuButton}
+          >
+            <Icon name="menu" size={28} color="white" />
+          </TouchableOpacity>
+          <Animated.Text style={[styles.label, labelAnimatedStyle]}>Employee Panel</Animated.Text>
+        </View>
+        <Text style={styles.title}>HRMS</Text>
+        <Icon name="bell" size={28} color="white" style={styles.bellIcon} />
+        <Icon name="account" size={28} color="white" style={styles.bellIcon} />
+      </View>
+      <Animated.View style={[styles.iconContainer, { backgroundColor: headerBg, width: animWidth }]}>
+        {/* MENU ITEMS */}
+        <MenuItem icon="account" label="Profile" showLabel={showLabel} href="/Profile" labelAnimatedStyle={labelAnimatedStyle} />
+        <MenuItem icon="home" label="Home" showLabel={showLabel} href="/" labelAnimatedStyle={labelAnimatedStyle} />
+        <MenuItem icon="clock" label="Attendance" showLabel={showLabel} href="/Attendance" labelAnimatedStyle={labelAnimatedStyle} />
+        <MenuItem icon="calendar" label="Holiday Calendar" showLabel={showLabel} href="/HolidayCalender" labelAnimatedStyle={labelAnimatedStyle} />
+        <MenuItem icon="bullhorn" label="Notice Board" showLabel={showLabel} href="/Noticeboard" labelAnimatedStyle={labelAnimatedStyle} />
+        <MenuItem icon="clock" label="Request Overtime" showLabel={showLabel} href="/Requestovertime" labelAnimatedStyle={labelAnimatedStyle} />
+        <MenuItem icon="account" label="Leave Requests" showLabel={showLabel} href="/LeaveRequests" labelAnimatedStyle={labelAnimatedStyle} />
+        <MenuItem icon="clock" label="Request Workmode" showLabel={showLabel} href="/" labelAnimatedStyle={labelAnimatedStyle} />
+        <MenuItem icon="group" label="My Team" showLabel={showLabel} href="../componer" labelAnimatedStyle={labelAnimatedStyle} />
+      </Animated.View>
+    </View>
   );
-}
+};
+
+type MenuItemProps = {
+  icon: React.ComponentProps<typeof Icon>['name'];
+  label: string;
+  showLabel: boolean;
+  href: string;
+  labelAnimatedStyle?: any;
+};
+
+const MenuItem = ({ icon, label, showLabel, href, labelAnimatedStyle }: MenuItemProps) => (
+  <Link href={href as any} asChild>
+    <TouchableOpacity style={styles.iconRow}>
+      <Icon name={icon} size={40} color="white" />
+      <Animated.Text style={[styles.label, labelAnimatedStyle]}>{label}</Animated.Text>
+    </TouchableOpacity>
+  </Link>
+);
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: 'white',
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: 'blue',
+    flex: 1,
+    textAlign: 'center',
+  },
+  welcome: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginVertical: 10,
+  },
+  iconContainer: {
+    marginTop: 30,
+    paddingHorizontal: 10,
+    /* width is animated */
+    marginHorizontal: -20,
+  },
+  menuHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 15,
+    backgroundColor: '#1E90FF',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  menuButton: {
+    padding: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    backgroundColor: '#1E90FF',
+     top: -54,
+     left: -9,
+  },
+  label: {
+    marginLeft: 15,
+    fontSize: 16,
+    color: 'white',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginHorizontal: -20,
+    alignSelf: 'stretch',
+    backgroundColor: '#1E90FF',
+    top: -23,
+  },
+
+  bellIcon: {
+    alignSelf: 'center',
+    padding: 8,
   },
 });
+
+export default Index;
