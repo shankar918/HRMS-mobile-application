@@ -1,12 +1,12 @@
 import axios from "axios";
 
-const API_URL = "https://hrms-ask.onrender.com/api/auth/login";
+const BASE_URL = "http://192.168.2.196:5000/api"; // ✅: 192.168.2.196
 
 export const loginApi = async (email: string, password: string) => {
-  const response = await axios.post(API_URL, {
+  const response = await axios.post(`${BASE_URL}/auth/login`, {
     email,
     password,
   });
 
-  return response.data; // <-- backend response
+  return response.data;
 };

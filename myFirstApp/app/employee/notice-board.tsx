@@ -1,223 +1,157 @@
-// NoticeList.tsx
-import React, { useEffect, useState, useContext, useRef, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  StyleSheet,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   ActivityIndicator,
-  SafeAreaView,
-  Alert,
-  Dimensions,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
-import { AuthContext } from "../../src/context/AuthContext";
-import { getNotices, sendReply, sendReplyWithImage } from "../../src/services/api";
+import { getNotices } from "../../src/services/notice.api";
 
-const { width } = Dimensions.get("window");
-
-const NoticeList = () => {
-  // ✅ Auth context
-  const auth = useContext(AuthContext);
-  if (!auth) return null;
-
-  const { user } = auth;
-
-  // ✅ FIXED LINE (NO ERROR)
-  const currentUserId = user?._id;
-
+const EmployeeNoticeBoard = () => {
   const [notices, setNotices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [activeNotice, setActiveNotice] = useState<any>(null);
-  const [replyText, setReplyText] = useState("");
-  const [sending, setSending] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const scrollViewRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    loadNotices();
+  }, []);
 
-  // 🔹 Fetch notices
-  const fetchNotices = useCallback(async () => {
+  const loadNotices = async () => {
     try {
-      setLoading(true);
       const data = await getNotices();
-
-      const sorted = data.sort(
-        (a: any, b: any) =>
-          new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-
-      setNotices(sorted);
-
-      if (activeNotice) {
-        const updated = sorted.find(
-          (n: any) => n._id === activeNotice._id
-        );
-        if (updated) setActiveNotice(updated);
-      }
+      setNotices(data);
     } catch (error) {
-      console.error("Fetch notices error:", error);
+      console.log("Failed to load notices", error);
     } finally {
       setLoading(false);
     }
-  }, [activeNotice]);
-
-  useEffect(() => {
-    fetchNotices();
-    const interval = setInterval(fetchNotices, 5000);
-    return () => clearInterval(interval);
-  }, [fetchNotices]);
-
-  // 🔹 Pick image
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      setSelectedImage(result.assets[0].uri);
-    }
   };
 
-  // 🔹 Send reply
-  const handleSendReply = async (suggestion?: string) => {
-    const text = suggestion || replyText;
-    if (!text.trim() && !selectedImage) return;
-
-    setSending(true);
-
-    try {
-      if (selectedImage) {
-        const formData = new FormData();
-        formData.append("message", text);
-
-        const filename = selectedImage.split("/").pop() || "image.jpg";
-        const type = `image/${filename.split(".").pop()}`;
-
-        formData.append("image", {
-          uri: selectedImage,
-          name: filename,
-          type,
-        } as any);
-
-        await sendReplyWithImage(activeNotice._id, formData);
-      } else {
-        await sendReply(activeNotice._id, text);
-      }
-
-      setReplyText("");
-      setSelectedImage(null);
-      fetchNotices();
-    } catch {
-      Alert.alert("Error", "Failed to send reply");
-    } finally {
-      setSending(false);
-    }
+  const toggleReadMore = (id: string) => {
+    setExpandedId(expandedId === id ? null : id);
   };
 
-  // 🔹 Render notice
-  const renderNotice = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.noticeCard}
-      onPress={() => {
-        setActiveNotice(item);
-        setIsChatOpen(true);
-      }}
-    >
-      <Text style={styles.title}>{item.title}</Text>
-      <Text style={styles.content} numberOfLines={2}>
-        {item.content}
-      </Text>
-    </TouchableOpacity>
-  );
+  const renderItem = ({ item }: any) => {
+    const isExpanded = expandedId === item._id;
+
+    return (
+      <View style={styles.card}>
+        {/* HEADER */}
+        <View style={styles.header}>
+          <Text
+            style={[
+              styles.role,
+              item.createdByRole === "EMPLOYEE"
+                ? styles.employee
+                : styles.admin,
+            ]}
+          >
+            {item.createdByRole || "System Admin"}
+          </Text>
+
+          <Text style={styles.date}>
+            {new Date(item.updatedAt).toLocaleString()}
+          </Text>
+        </View>
+
+        {/* TITLE */}
+        <Text style={styles.title}>{item.title}</Text>
+
+        {/* MESSAGE */}
+        <Text
+          numberOfLines={isExpanded ? undefined : 3}
+          style={styles.message}
+        >
+          {item.message}
+        </Text>
+
+        {/* READ MORE */}
+        {item.message?.length > 120 && (
+          <TouchableOpacity onPress={() => toggleReadMore(item._id)}>
+            <Text style={styles.readMore}>
+              {isExpanded ? "Show less" : "Read more"}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (!notices.length) {
+    return (
+      <View style={styles.center}>
+        <Text>No announcements available</Text>
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.screenTitle}>Notice Board</Text>
-
-      {loading ? (
-        <ActivityIndicator size="large" />
-      ) : (
-        <FlatList
-          data={notices}
-          keyExtractor={(item) => item._id}
-          renderItem={renderNotice}
-        />
-      )}
-
-      {/* Chat modal */}
-      <Modal visible={isChatOpen} animationType="slide">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1 }}
-        >
-          <ScrollView ref={scrollViewRef}>
-            {activeNotice?.replies?.map((r: any, i: number) => (
-              <View key={i} style={styles.messageBubble}>
-                {r.image && (
-                  <Image source={{ uri: r.image }} style={styles.chatImage} />
-                )}
-                <Text>{r.message}</Text>
-              </View>
-            ))}
-          </ScrollView>
-
-          <View style={styles.inputContainer}>
-            <TouchableOpacity onPress={pickImage}>
-              <FontAwesome5 name="paperclip" size={20} />
-            </TouchableOpacity>
-
-            <TextInput
-              style={styles.input}
-              value={replyText}
-              onChangeText={setReplyText}
-              placeholder="Write reply..."
-            />
-
-            <TouchableOpacity onPress={() => handleSendReply()}>
-              <FontAwesome5 name="paper-plane" size={18} />
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-    </SafeAreaView>
+    <FlatList
+      data={notices}
+      keyExtractor={(item) => item._id}
+      renderItem={renderItem}
+      contentContainerStyle={{ paddingBottom: 20 }}
+    />
   );
 };
 
+export default EmployeeNoticeBoard;
+
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  screenTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 10 },
-  noticeCard: {
+  card: {
     backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 10,
+    margin: 12,
+    padding: 14,
+    borderRadius: 10,
+    elevation: 3,
   },
-  title: { fontSize: 16, fontWeight: "700" },
-  content: { color: "#555" },
-  messageBubble: { padding: 10, margin: 8, backgroundColor: "#eee" },
-  chatImage: { width: 150, height: 100, borderRadius: 10 },
-  inputContainer: {
+  header: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    padding: 10,
   },
-  input: {
+  role: {
+    fontWeight: "bold",
+    fontSize: 13,
+  },
+  admin: {
+    color: "#1e40af", // blue
+  },
+  employee: {
+    color: "#15803d", // green
+  },
+  date: {
+    fontSize: 11,
+    color: "#777",
+  },
+  title: {
+    marginTop: 6,
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  message: {
+    marginTop: 6,
+    color: "#444",
+    lineHeight: 20,
+  },
+  readMore: {
+    marginTop: 8,
+    color: "#2563eb",
+    fontWeight: "600",
+  },
+  center: {
     flex: 1,
-    backgroundColor: "#f1f5f9",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    marginHorizontal: 8,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
-
-export default NoticeList;

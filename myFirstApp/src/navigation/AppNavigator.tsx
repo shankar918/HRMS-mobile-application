@@ -1,8 +1,8 @@
 import { createStackNavigator } from "@react-navigation/stack";
-import LoginScreen from "../screens/auth/LoginScreen";
-import EmployeeDashboard from "../screens/Employee/EmployeeDashboard";
 import { useContext } from "react";
+import EmployeeDashboard from "../../app/employee/dashboard";
 import { AuthContext } from "../../src/context/AuthContext";
+import LoginScreen from "../auth/LoginScreen";
 
 const Stack = createStackNavigator();
 

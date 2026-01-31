@@ -1,28 +1,26 @@
 import React, { createContext, useState } from "react";
-
-export type User = {
-  _id: string;
-  name?: string;
-  email: string;
-  role: string;
-};
+import { loginApi } from "../services/auth.api";
 
 type AuthContextType = {
-  user: User | null;
+  user: any;
   token: string | null;
-  login: (user: User, token: string) => void;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 };
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  const login = (userData: User, token: string) => {
-    setUser(userData);
-    setToken(token);
+  const login = async (email: string, password: string) => {
+    const res = await loginApi(email, password);
+
+    setUser(res.data);
+    setToken(res.token);
+
+    console.log("LOGIN SUCCESS:", res);
   };
 
   const logout = () => {

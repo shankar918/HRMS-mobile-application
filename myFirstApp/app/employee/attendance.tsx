@@ -3,57 +3,31 @@ import {
   View,
   Text,
   StyleSheet,
+  FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from "react-native";
-import { useAuth } from "../../src/context/useAuth";
-import {
-  getTodayAttendance,
-  punchIn,
-  punchOut,
-} from "../../src/services/api";
+import { Ionicons } from "@expo/vector-icons";
+import { getAttendanceForEmployee } from "../../src/services/attendanceApi";
+
+const EMPLOYEE_ID = "TEST01"; // later get from auth context
 
 export default function AttendanceScreen() {
-  const { user } = useAuth();
-  const employeeId = user?.employeeId;
-
   const [loading, setLoading] = useState(true);
-  const [attendance, setAttendance] = useState<any>(null);
-
-  const fetchToday = async () => {
-    try {
-      setLoading(true);
-      const data = await getTodayAttendance(employeeId);
-      setAttendance(data);
-    } catch {
-      setAttendance(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [records, setRecords] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchToday();
+    loadAttendance();
   }, []);
 
-  const handlePunchIn = async () => {
+  const loadAttendance = async () => {
     try {
-      await punchIn(employeeId);
-      Alert.alert("Success", "Punched In");
-      fetchToday();
-    } catch {
-      Alert.alert("Error", "Punch In failed");
-    }
-  };
-
-  const handlePunchOut = async () => {
-    try {
-      await punchOut(employeeId);
-      Alert.alert("Success", "Punched Out");
-      fetchToday();
-    } catch {
-      Alert.alert("Error", "Punch Out failed");
+      const res = await getAttendanceForEmployee(EMPLOYEE_ID);
+      setRecords(res || []);
+    } catch (err) {
+      console.log("Attendance fetch failed", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -62,78 +36,156 @@ export default function AttendanceScreen() {
   }
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>Today Attendance</Text>
+    <FlatList
+      style={styles.container}
+      ListHeaderComponent={
+        <>
+          {/* HEADER */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Attendance</Text>
+            <Ionicons name="notifications-outline" size={22} color="#fff" />
+          </View>
 
-      <Row label="Date" value={attendance?.date || "-"} />
-      <Row label="First In" value={attendance?.firstIn || "-"} />
-      <Row label="Last Out" value={attendance?.lastOut || "-"} />
-      <Row label="Worked" value={attendance?.workedTime || "0h 0m"} />
-      <Row label="Status" value={attendance?.status || "Not Started"} />
+          {/* MONTHLY BREAKDOWN */}
+          <Text style={styles.sectionTitle}>Monthly Breakdown</Text>
 
-      {!attendance?.firstIn ? (
-        <Button text="PUNCH IN" onPress={handlePunchIn} />
-      ) : !attendance?.lastOut ? (
-        <Button text="PUNCH OUT" onPress={handlePunchOut} danger />
-      ) : (
-        <Text style={styles.done}>✅ Attendance Completed</Text>
-      )}
-    </View>
+          <View style={styles.statsRow}>
+            <Stat label="FULL DAYS" value="0" />
+            <Stat label="HALF DAYS" value="0" />
+            <Stat label="PRESENT" value="1" />
+            <Stat label="ABSENT" value="0" />
+          </View>
+
+          <Text style={styles.sectionTitle}>Attendance History</Text>
+        </>
+      }
+      data={records}
+      keyExtractor={(item) => item._id}
+      renderItem={({ item }) => <AttendanceCard item={item} />}
+      contentContainerStyle={{ paddingBottom: 30 }}
+    />
   );
 }
 
-/* ===== UI HELPERS ===== */
+/* ---------------- COMPONENTS ---------------- */
 
-const Row = ({ label, value }: any) => (
-  <View style={styles.row}>
-    <Text>{label}:</Text>
-    <Text style={{ fontWeight: "700" }}>{value}</Text>
+const Stat = ({ label, value }: any) => (
+  <View style={styles.statCard}>
+    <Text style={styles.statLabel}>{label}</Text>
+    <Text style={styles.statValue}>{value}</Text>
   </View>
 );
 
-const Button = ({ text, onPress, danger }: any) => (
-  <TouchableOpacity
-    onPress={onPress}
-    style={[styles.btn, danger && { backgroundColor: "#ef4444" }]}
-  >
-    <Text style={styles.btnText}>{text}</Text>
-  </TouchableOpacity>
+const AttendanceCard = ({ item }: any) => (
+  <View style={styles.card}>
+    <View style={styles.rowBetween}>
+      <View>
+        <Text style={styles.dateText}>{item.date}</Text>
+        <Text style={styles.dayText}>{item.day}</Text>
+      </View>
+
+      <View style={[styles.badge, badgeColor(item.status)]}>
+        <Text style={styles.badgeText}>{item.status}</Text>
+      </View>
+    </View>
+
+    <View style={styles.timeRow}>
+      <TimeItem icon="log-in-outline" label="In" value={item.inTime || "--"} />
+      <TimeItem icon="log-out-outline" label="Out" value={item.outTime || "--"} />
+      <TimeItem icon="time-outline" label="Worked" value={item.worked || "0h"} />
+    </View>
+  </View>
 );
 
-/* ===== STYLES ===== */
+const TimeItem = ({ icon, label, value }: any) => (
+  <View style={styles.timeItem}>
+    <Ionicons name={icon} size={18} />
+    <Text style={styles.timeLabel}>{label}</Text>
+    <Text style={styles.timeValue}>{value}</Text>
+  </View>
+);
+
+const badgeColor = (status: string) => {
+  switch (status) {
+    case "Absent":
+      return { backgroundColor: "#FEE2E2" };
+    case "Late":
+      return { backgroundColor: "#FEF3C7" };
+    default:
+      return { backgroundColor: "#DCFCE7" };
+  }
+};
+
+/* ---------------- STYLES ---------------- */
 
 const styles = StyleSheet.create({
-  card: {
-    margin: 20,
-    padding: 20,
-    borderRadius: 16,
-    backgroundColor: "#fff",
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 14,
-  },
-  row: {
+  container: { backgroundColor: "#F5F7FB" },
+
+  header: {
+    backgroundColor: "#2563EB",
+    padding: 16,
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
+    alignItems: "center",
   },
-  btn: {
-    backgroundColor: "#2563eb",
+  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "700" },
+
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    margin: 16,
+  },
+
+  statsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+  },
+
+  statCard: {
+    width: "48%",
+    backgroundColor: "#fff",
     padding: 14,
     borderRadius: 12,
+    marginBottom: 12,
+  },
+  statLabel: { color: "#64748B" },
+  statValue: { fontSize: 20, fontWeight: "700" },
+
+  card: {
+    backgroundColor: "#fff",
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 14,
+    borderRadius: 14,
+  },
+
+  rowBetween: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
+  dateText: { fontSize: 16, fontWeight: "700" },
+  dayText: { color: "#64748B" },
+
+  badge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  badgeText: { fontWeight: "600" },
+
+  timeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 14,
+  },
+
+  timeItem: {
     alignItems: "center",
-    marginTop: 20,
+    width: "30%",
   },
-  btnText: {
-    color: "#fff",
-    fontWeight: "800",
-  },
-  done: {
-    marginTop: 20,
-    color: "#16a34a",
-    fontWeight: "800",
-    textAlign: "center",
-  },
+  timeLabel: { fontSize: 12, color: "#64748B" },
+  timeValue: { fontWeight: "600" },
 });

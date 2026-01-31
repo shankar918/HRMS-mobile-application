@@ -1,7 +1,7 @@
 import React, { useContext } from "react";
-import LoginScreen from "../src/screens/auth/LoginScreen";
 import EmployeeDashboard from "../app/employee/dashboard";
-import { AuthProvider, AuthContext } from "../src/context/AuthContext";
+import LoginScreen from "../src/auth/LoginScreen";
+import { AuthContext, AuthProvider } from "../src/context/AuthContext";
 
 const MainApp = () => {
   const { user } = useContext(AuthContext);

@@ -1,7 +1,7 @@
 // --- START OF FILE controllers/authController.js ---
 
-import { promisify } from "util";
 import jwt from "jsonwebtoken";
+import { promisify } from "util";
 import Admin from "../models/adminModel.js";
 import Employee from "../models/employeeModel.js";
 
